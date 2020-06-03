@@ -1,0 +1,12 @@
+name: DCI_capstone
+title: DCI_capstone
+username:
+account: sunitha-bussa
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2399019
+bundleId: 3221159
+url: https://sunitha-bussa.shinyapps.io/DCI_capstone/
+when: 1591152994.54329
+asMultiple: FALSE
+asStatic: FALSE

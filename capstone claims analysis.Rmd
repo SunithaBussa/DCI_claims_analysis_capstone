@@ -1,0 +1,809 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(plotly)
+
+```
+
+
+```{r}
+raw_data<-read_csv('data/capstone_remit_claims_data.csv')
+```
+
+ 
+```{r}
+str(raw_data)
+```
+
+```{r}
+#chnage the columns datatypes to correct data types
+df<-raw_data %>%
+  mutate(patient_id = as.factor(patient_id),
+         location_id = as.factor(location_id),
+         #cost_code = as.factor(cost_code),
+         modality_cost_code = as.character(modality_cost_code),
+         remit_allowed_amount = as.double(remit_allowed_amount),
+         contract_number = as.factor(contract_number),
+         hct_per = as.double(hct_per),
+         epo_units = as.integer(epo_units),
+         pcn_payer_code = as.factor(pcn_payer_code),
+         type_of_care = as.factor(type_of_care)
+         ) %>% 
+  select(-epo_units,-modifier_4,-modifier_5)
+  
+```
+
+```{r}
+dim(raw_data)#11754 and 28 columns
+```
+```{r}
+summary(raw_data)
+```
+```{r}
+#total number of pcn_payer_Code
+raw_data %>% 
+  summarise(n_distinct(pcn_payer_code))
+
+```
+```{r}
+unique(raw_data$pcn_payer_code)
+```
+```{r}
+sum(is.na(raw_data))
+```
+
+
+```{r}
+raw_data %>% 
+  select (remit_total_paid)  %>% 
+  summary()
+```
+```{r}
+library(ggplot2)
+#theme_set(theme_classic())
+df %>% 
+  ggplot(aes(x=remit_total_charged))  + 
+  geom_histogram(binwidth = 100) 
+```
+```{r}
+diff(range(df$remit_total_charged))/50
+```
+
+```{r}
+ggplot(df, aes(x= remit_total_charged)) +
+  geom_histogram(binwidth = 50)
+```
+
+
+```{r}
+df %>% 
+  ggplot(aes(x=remit_total_paid)) + geom_histogram(binwidth = 50)
+```
+
+ 
+```{r}
+df %>% 
+  ggplot(aes(x=remit_total_paid,fill = pcn_payer_code)) + 
+  geom_histogram(bins=40,binwidth = 10, center = 0.05,alpha = 0.8)
+```
+
+ 
+
+ 
+```{r}
+ggplot(df, aes(x= date_of_service, y = remit_total_paid,color = factor(pcn_payer_code))) +
+  geom_line()
+```
+```{r}
+ df %>% 
+  mutate('percentage_paid' = remit_total_paid/remit_total_charged*100) %>% 
+  mutate('period' =  paste(acct_mm , '/' , acct_yyyy)) %>% 
+  select(acct_mm,acct_yyyy,period,percentage_paid,pcn_payer_code) %>% 
+  group_by(acct_mm,acct_yyyy,period,pcn_payer_code) %>% 
+  summarise('avg_pct_paid'=mean(percentage_paid)) %>% 
+  arrange(desc(acct_yyyy,acct_mm,avg_pct_paid))
+```
+
+```{r}
+ df %>% 
+  mutate('percentage_paid' = remit_total_paid/remit_total_charged*100) %>% 
+  mutate('period' =  paste(acct_mm , '/' , acct_yyyy)) %>% 
+  select(acct_mm,acct_yyyy,period,percentage_paid,pcn_payer_code) %>% 
+  group_by(acct_mm,acct_yyyy,period,pcn_payer_code) %>% 
+  summarise('avg_pct_paid'=mean(percentage_paid)) %>% 
+  arrange(desc(acct_yyyy,acct_mm,avg_pct_paid)) %>% 
+  ggplot(aes( x = period, ,y = avg_pct_paid,group=1,color=pcn_payer_code,fill=pcn_payer_code)) + 
+  geom_point() +
+    theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+```
+ 
+
+```{r}
+df
+```
+```{r}
+
+```
+
+
+```{r}
+# payment percentage by location
+df %>% 
+  group_by(location_id) %>% 
+  summarise('Num_of_rows'=n(),
+            'Total_charges' = sum(remit_total_charged),
+            'Total_payments' = sum(remit_total_paid),
+            'percentage_payments' = (Total_payments/Total_charges) * 100,
+            ) %>% 
+  arrange(percentage_payments)
+
+ 
+
+```
+
+```{r}
+
+# payment percentage by PCN
+charge_payments<- df %>% 
+                  group_by(pcn_payer_code) %>% 
+                  summarise('Num_of_rows'=n(),
+                   'Total_charges' = sum(remit_total_charged),
+                    'Total_payments' = sum(remit_total_paid),
+                     'percentage_payments' = (Total_payments/Total_charges) * 100,
+                      ) %>% 
+                  arrange(percentage_payments)
+```
+```{r}
+charge_payments %>% 
+  mutate('mean_percentage_payments' = sum(Total_payments)/sum(Total_charges)*100)
+```
+```{r}
+df %>% 
+  group_by(pcn_payer_code) %>% 
+  summarise('Num_of_rows'=n(),
+            'Total_charges' = sum(remit_total_charged),
+            'Total_payments' = sum(remit_total_paid),
+            'percentage_payments' = (Total_payments/Total_charges) * 100,
+            ) %>% 
+  arrange(desc(Total_charges)) %>% 
+  ggplot(aes(reorder(x=pcn_payer_code,percentage_payments),y=percentage_payments,fill = pcn_payer_code)) + geom_col() +
+  theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+```
+
+```{r}
+df %>% 
+  group_by(location_id,pcn_payer_code) %>% 
+  summarise('total_charges'=sum(remit_total_charged),'total_paid' = sum(remit_total_paid)) %>% 
+  mutate('loss_amt' = total_charges-total_paid) %>% 
+  mutate('payment_percentage' = (total_paid/total_charges)*100) %>% 
+  mutate('loss_percentage' = (loss_amt/total_charges) * 100) %>% 
+  filter(total_paid!=0) %>% 
+  arrange(location_id,desc(payment_percentage))
+```
+```{r}
+df %>% 
+  group_by(description) %>% 
+summarise('total_charges'=sum(remit_total_charged),
+          'total_paid' = sum(remit_total_paid)) %>% 
+  mutate('percentage_paid' = round(total_paid/total_charges * 100,2)) %>% 
+  filter(percentage_paid <10 )%>% 
+  arrange(desc(percentage_paid)  )
+```
+
+```{r}
+##top cost codes
+df %>% 
+  group_by(description) %>% 
+summarise('total_charges'=sum(remit_total_charged),'total_paid' = sum(remit_total_paid)) %>% 
+  mutate('percentage_paid' = round(total_paid/total_charges * 100,2)) %>% 
+  filter(percentage_paid <10 )%>% 
+  arrange(percentage_paid) %>% 
+  ggplot(aes(x=reorder(description,percentage_paid),y=percentage_paid,fill = description)) + geom_bar(stat="identity") +
+  geom_text(aes(label=percentage_paid), vjust=0) +  
+  #scale_fill_brewer(palette="Spectral")+
+  coord_flip()+
+  theme(axis.text.x = element_text(angle = 45,hjust=1)) +
+  xlab("Medication") +
+  ylab("Percentage of charges paid") +
+  ggtitle("Medications for which less than 10 percent paid")+
+  theme(legend.position = "none")
+#remove legend
+  
+  
+```
+```{r}
+#only medications paid by cost_code
+df %>% 
+  select(modality_cost_code,cost_code,description,remit_total_charged,remit_total_paid) %>% 
+    filter(cost_code>3000 & cost_code<5000) %>%  
+    mutate('percentage_paid' = round(remit_total_paid/remit_total_charged * 100,2)) %>% 
+    group_by(modality_cost_code, description) %>% 
+  summarize('avg_per_paid'=mean(percentage_paid)) %>% 
+  arrange( avg_per_paid) %>% 
+  ggplot(aes(reorder(x=description,avg_per_paid), y = avg_per_paid,fill =  modality_cost_code )) +
+  geom_col(stat="identity",postion = 'dodge') +
+  ggtitle("Medication payments by modality") + 
+  labs(x="Medications", y = 'avg_per_payments')+
+   coord_flip()  
+```
+
+```{r}
+df %>% 
+  select(modality_cost_code,cost_code,description,remit_total_charged,remit_total_paid) %>% 
+    filter(cost_code>3000 & cost_code<5000) %>%  
+    mutate('percentage_paid' = round(remit_total_paid/remit_total_charged * 100,2)) %>% 
+    group_by(modality_cost_code,description) %>% 
+  summarize('avg_per_paid'=mean(percentage_paid)) %>% 
+  arrange(modality_cost_code) %>% 
+filter(description == 'ENGERIX-B') 
+```
+
+```{r}
+df %>% 
+  select (modality_cost_code,cost_code,description,percentage_paid) %>% 
+  filter(description == 'ENGERIX-B') %>% 
+  group_by(modality_cost_code) %>% 
+  summarize('app'=mean(percentage_paid))
+```
+
+```{r}
+df %>% 
+  select(modality_cost_code,cost_code,description,remit_total_charged,remit_total_paid) %>% 
+    filter(cost_code>3000 & cost_code<5000) %>%  
+    mutate('percentage_paid' = round(remit_total_paid/remit_total_charged * 100,2)) %>% 
+    group_by(modality_cost_code,cost_code,description) %>% 
+  summarize('avg_per_paid'=mean(percentage_paid)) %>% 
+  arrange(cost_code,modality_cost_code) 
+```
+
+
+```{r}
+##only treatments
+treatments<-df %>% 
+            group_by(cost_code) %>% 
+            filter(cost_code<1510) 
+
+treatment_summaries<-treatments %>% 
+  mutate('treatment_type' = case_when(modality_cost_code %in% c('1110','1210','1310') ~ "1110",
+                                        TRUE ~ modality_cost_code)) %>% 
+  group_by(treatment_type,description) %>% 
+  summarise('total_charges'=sum(remit_total_charged),'total_paid' = sum(remit_total_paid)) %>% 
+  mutate('percentage_paid' = round(total_paid/total_charges * 100,2)) %>% 
+  arrange(desc(percentage_paid))
+
+treatment_summaries
+  
+```
+
+ 
+```{r}
+treatment_summaries %>% 
+ggplot(aes(reorder(x=description,total_paid),y=total_paid,fill = description))+geom_bar(stat="identity")+
+  coord_flip()+
+    theme(axis.text.x = element_text(angle = 45,hjust=1))+
+  xlab("charges") +
+  ylab("Treatments") +
+  ggtitle("Payments by Treatments")
+  
+```
+```{r}
+treatment_summaries %>% 
+ggplot(aes(reorder(x=description,percentage_paid),y=percentage_paid,fill = description))+geom_bar(stat="identity")+
+  #coord_flip()+
+    theme(axis.text.x = element_text(angle = 45,hjust=1))+
+  xlab("charges") +
+  ylab("Treatments") +
+  ggtitle("For which modality good percentage of charge is paid back")
+```
+
+```{r}
+head(df)
+```
+```{r}
+treatment_summaries
+```
+
+
+```{r}
+df %>% 
+  filter(cost_code<1510)
+```
+```{r}
+df %>% 
+  group_by(pcn_payer_code) %>% 
+ summarise('total_charges'=sum(remit_total_charged),'total_paid' = sum(remit_total_paid)) %>% 
+  mutate('percentage_of_payments' = round(total_paid/sum(total_paid)*100,2)) %>% 
+    mutate('per_payment_overall' = round((total_paid/sum(total_paid))*100,2))
+```
+
+```{r}
+bp<-df %>% 
+  group_by(pcn_payer_code) %>% 
+ summarise('total_charges'=sum(remit_total_charged),'total_paid' = sum(remit_total_paid)) %>% 
+  mutate('percentage_of_payments' = round(total_paid/sum(total_paid)*100,2)) %>% 
+    mutate('per_payment_overall' = round((total_paid/sum(total_paid))*100,2)) %>% 
+  ggplot(aes(x="",y=percentage_of_payments,fill = pcn_payer_code))+
+  geom_bar(width = 1, stat = "identity")
+bp
+
+ pie_chart <- bp + coord_polar("y",start = 0) +
+   labs(title = "Majority of Payments coming from pcn: 02371010") +
+   theme_void()  
+pie_chart
+#92.58
+ 
+```
+```{r}
+library(scales)
+bp<-df %>% 
+  group_by(pcn_payer_code) %>% 
+ summarise('total_charges'=sum(remit_total_charged),'total_paid' = sum(remit_total_paid)) %>% 
+  mutate('percentage_of_payments' = round(total_paid/sum(total_paid)*100,2)) %>% 
+    mutate('per_payment_overall' = round((total_paid/sum(total_paid))*100,2)) %>% 
+  filter(pcn_payer_code !='02371001') %>% 
+  ggplot(aes(x="",y=percentage_of_payments,fill = pcn_payer_code))+
+  geom_bar(width = 1, stat = "identity")
+bp
+
+ pie_chart <- bp + coord_polar("y",start = 0) +
+   labs(title = "PCN PAYMENTS") +
+   theme_void()  +
+ geom_text(aes(y = percentage_of_payments/3 + c(0, cumsum(percentage_of_payments)[-length(percentage_of_payments)]), 
+            label = percent(percentage_of_payments/100)), size=4)
+ 
+   #geom_text(aes(y = value/3 + c(0, cumsum(value)[-length(value)]), 
+    #        label = percent(value/100)), size=5)
+pie_chart
+
+```
+
+```{r}
+ts<-treatment_summaries %>% 
+ ggplot(aes(x=reorder(description,percentage_paid),y=percentage_paid,fill = description))+
+  geom_bar(width = 1, stat = "identity")+
+    theme(axis.text.x = element_text(angle = 45,hjust=1)) 
+ts
+
+ 
+```
+
+```{r}
+df
+```
+ 
+,
+```{r}
+ggplot(df) + 
+geom_bar(aes(x=pcn_payer_code, y=remit_total_paid, color=modality_cost_code),stat="identity") + geom_smooth(aes(x=pcn_payer_code, y=remit_total_paid, color=modality_cost_code))+
+  theme(axis.text.x = element_text(angle = 90,hjust=1)) 
+```
+```{r}
+df %>% 
+  select(acct_mm, acct_yyyy)
+```
+
+```{r}
+df %>% 
+  filter(pcn_payer_code!='02371001') %>% 
+  select (pcn_payer_code,modality_cost_code,remit_total_paid) %>% 
+  group_by(modality_cost_code,pcn_payer_code) %>% 
+  summarise('avg_paid' = mean(remit_total_paid)) %>% 
+  ggplot() + geom_bar(aes(x=pcn_payer_code, y=avg_paid, color=modality_cost_code),stat="identity") +             geom_col(aes(x=pcn_payer_code, y=avg_paid, color=modality_cost_code))+
+  theme(axis.text.x = element_text(angle = 90,hjust=2)) 
+```
+
+```{r}
+#unique cost_codes
+df %>% 
+  summarise('Total_unique_cost_codes' = n_distinct(cost_code))
+```
+```{r}
+head(df)
+```
+```{r}
+df %>% 
+  filter(cost_code==1510)
+```
+
+```{r}
+options(scipen = 999)
+df %>% 
+  group_by(cost_code ) %>% 
+summarise('total_charges'=sum(remit_total_charged),'total_paid' = sum(remit_total_paid)) %>% 
+  mutate('percentage_paid' = total_paid/total_charges * 100) %>% 
+  filter(percentage_paid>0) %>% 
+  mutate('per_payment_overall' = round((total_paid/sum(total_paid))*100,2)) %>% 
+  arrange(desc(per_payment_overall)) %>% 
+  ggplot(aes(x= factor(cost_code),y=per_payment_overall,fill = cost_code)) +
+  geom_col(stat_count = "identity")
+```
+```{r}
+df %>% 
+  select(remit_total_paid)    %>% 
+  summary()
+```
+```{r}
+df %>% 
+  top_n(-1,remit_total_paid)
+```
+
+
+```{r}
+df %>% 
+  select(date_of_service,patient_id,cost_code,remit_total_paid,pcn_payer_code) %>% 
+  ggplot(aes(x=as.factor(cost_code),y=remit_total_paid,fill=pcn_payer_code)) +geom_point()+
+  theme(axis.text.x = element_text(angle = 90,hjust=1)) 
+```
+```{r}
+pl <- ggplot(df, aes(x=hct_per,y=remit_total_paid) ) +
+  geom_point(alpha=0.2) + geom_smooth(method = 'lm') +
+  scale_x_log10() +
+  scale_y_log10()
+
+#ggplotly(pl)
+  
+
+```
+
+```{r}
+df
+```
+
+G1 - Most recent URR of less than 60%
+G2 - Most recent URR of 60% to 64.9%
+G3 - Most recent URR of 65% to 69.9%
+G4 - Most recent URR of 70% to 74.9%
+G5 - Most recent URR of 75% or greater
+G6 - ESRD patient for whom less than seven dialysis sessions have been provided in a month.
+```{r}
+library(dplyr)
+df %>% 
+  select(modifier_1) %>% 
+  arrange((modifier_1))
+```
+```{r}
+#Urea Reduction Ratio (URR) Modifiers
+
+
+unique(df$modifier_1)
+```
+```{r}
+unique(df$modifier_2)
+```
+
+```{r}
+unique(df$modifier_3)
+```
+ 
+```{r}
+#PERCENTAGE PAID BY pcn's without modifiers
+
+no_modifiers<-df %>% filter(modifier_1 == 'NULL' & modifier_2 == 'NULL' & modifier_3 == 'NULL')
+
+
+```
+```{r}
+no_modifiers<-no_modifiers %>% 
+  group_by(pcn_payer_code) %>% 
+  summarise('tc' = sum(remit_total_charged),'tp'=sum(remit_total_paid)) %>% 
+mutate ('pct_paid_with_no_modifiers'=tp/tc*100)
+no_modifiers
+```
+
+```{r}
+with_modifiers<-df %>% filter(modifier_1 != 'NULL' | modifier_2 !='NULL' | modifier_3 !='NULL')
+#percentage paid by pcn's with modifiers
+with_modifiers<-with_modifiers %>% 
+  group_by(pcn_payer_code) %>% 
+  summarise('tc' = sum(remit_total_charged),'tp'=sum(remit_total_paid)) %>% 
+mutate ('pct_paid_with_modifiers'=tp/tc*100)
+with_modifiers
+```
+```{r}
+#merge  
+ merge(with_modifiers,no_modifiers,by = "pcn_payer_code") %>% 
+  select(pcn_payer_code,pct_paid_with_modifiers,pct_paid_with_no_modifiers)
+
+```
+
+```{r}
+ pcn_modifier<- df %>% filter(modifier_1 != 'NULL' | modifier_2 !='NULL' | modifier_3 !='NULL') %>% 
+  group_by(pcn_payer_code,modifier_1) %>% 
+  summarise('tc' = sum(remit_total_charged),'tp'=sum(remit_total_paid) )%>% 
+mutate ('pct_paid_with_modifiers'=tp/tc*100)
+pcn_modifier 
+```
+
+```{r}
+ df %>%  
+  group_by(pcn_payer_code,modifier_1) %>% 
+  summarise('tc' = sum(remit_total_charged),'tp'=sum(remit_total_paid) )%>% 
+mutate ('pct_paid_with_modifiers'=tp/tc*100) %>% 
+  arrange(pcn_payer_code,modifier_1) %>% 
+  ungroup()
+```
+Start preparing dataframe for algorithms
+```{r}
+str(df)
+```
+
+
+```{r}
+str(df)
+```
+```{r}
+dplyr::count(df,diagnosis_code,sort = TRUE)
+```
+
+N25.81 - Secondary hyperparathyroidism of renal origin
+
+```{r}
+diagnosis<-df %>% group_by(diagnosis_code) %>% summarise(n=n(),total_charged = sum(remit_total_charged), total_paid = sum(remit_total_paid)) %>% arrange(desc(n))
+
+diagnosis
+
+```
+ 
+```{r}
+#Z23 is a billable ICD code used to specify a diagnosis of encounter for immunization.
+diagnosis %>% 
+  filter(!is.na(diagnosis_code)) %>% 
+  ggplot(aes(x=diagnosis_code,y=n,fill=diagnosis_code)) +
+  geom_col() +
+    theme(axis.text.x = element_text(angle = 90,hjust=1)) 
+```
+```{r}
+dim(df)
+```
+```{r}
+head(df)
+```
+```{r}
+sum(is.na(df))
+```
+
+```{r}
+#install.packages("naniar")
+library(naniar)
+df<-df %>% replace_with_na (replace = list(diagnosis_code = 'NULL', urr_modifier = 'NULL',modifier_1 = 'NULL',modifier_2='NULL',modifier_3='NULL'))
+```
+
+```{r}
+#delete unnecessary columns
+df<-df %>% 
+ select (-date_of_service,-acct_mm,-acct_yyyy,-claim_number,-remit_number,-location_id,-patient_id,-contract_number,-urr_modifier,-description)   
+```
+
+```{r}
+dummy_cols <- c("modality_cost_code","diagnosis_code","type_of_care","revenue_code", "modifier_1","modifier_2","modifier_3","revenue_code","hcpc_code","pcn_payer_code")
+
+algo_df<-fastDummies::dummy_columns(df,select_columns = c(dummy_cols),ignore_na = TRUE)
+```
+```{r}
+ algo_df[is.na(algo_df)]<- 0
+```
+
+```{r}
+str(algo_df)
+```
+
+
+```{r}
+df$diagnosis_code <- as.character(df$diagnosis_code)
+
+str(df)
+```
+
+
+```{r}
+#no na's found in dataframe.
+ sum(is.na(algo_df) )
+```
+```{r}
+head(algo_df)
+```
+
+```{r}
+algo_df_final<-algo_df %>% 
+   mutate( 'percentage_payment' =  remit_total_paid/remit_total_charged * 100) %>% 
+  select (-modality_cost_code,-cost_code,-diagnosis_code,-type_of_care,-revenue_code,-hcpc_code,-modifier_1,-modifier_2,-modifier_3,-pcn_payer_code,-remit_total_charged,-remit_total_paid,-remits_units,-remit_allowed_amount)
+```
+ 
+
+
+```{r}
+ sum(is.na(algo_df_final) )
+```
+ 
+ 
+```{r}
+cor(algo_df_final$percentage_payment,  method = "pearson")
+ 
+library(corrplot)
+```
+```{r}
+corrs<-algo_df_final %>% 
+  select (hct_per,remit_total_charged,remit_total_paid,remit_allowed_amount,pcn_payer_code,percentage_payment)
+```
+```{r}
+corrs
+```
+
+```{r}
+head(algo_df_final)
+
+```
+ 
+```{r}
+library(caret)
+index = createDataPartition(algo_df_final$hct_per,p=0.75,list = FALSE)
+
+trainSet <- algo_df_final[index,]
+testSet <- algo_df_final[-index,]
+```
+```{r}
+#OLS
+ols_ds <- train(percentage_payment~.,data = trainSet,method = "lm",
+                trControl = trainControl(method = "none"))
+```
+
+```{r}
+#training set performance
+train_pred <- predict(ols_ds, newdata = trainSet)
+MAE(pred = train_pred , obs = trainSet$percentage_payment)
+```
+```{r}
+#test set
+test_pred <- predict (ols_ds, newdata = testSet)
+MAE(pred = test_pred, obs = testSet$percentage_payment)
+```
+```{r}
+#Lasso
+sum(is.na(algo_df_final))
+```
+```{r}
+algo_df_final
+```
+```{r}
+str(algo_df_final)
+```
+
+```{r}
+index = createDataPartition(algo_df_final$percentage_payment,p=0.75,list=FALSE)
+
+trainSet <- algo_df_final[index,]
+testSet <- algo_df_final[-index,]
+ 
+x_train <- trainSet %>% 
+            select(-percentage_payment) %>%  as.matrix()
+
+#x_train <- model.matrix(~.,x_train)
+
+x_test <- testSet %>% 
+           select(-percentage_payment) %>% as.matrix()
+
+#x_test <- model.matrix(~ .,x_test)
+ 
+y_train <- trainSet$percentage_payment
+y_test <- testSet$percentage_payment
+```
+```{r}
+#lets standardize the data
+preProcValues <- preProcess(x_train, method = c("center","scale"))
+```
+```{r}
+testSet %>% 
+  select (diagnosis_code_N18.6) %>% 
+  filter(diagnosis_code_N18.6!=0)
+```
+
+```{r}
+x_trainTransformed <- predict(preProcValues,x_train)
+x_testTransformed<- predict(preProcValues,x_test)
+```
+ 
+```{r}
+sum(is.na(x_testTransformed))
+```
+
+```{r}
+library(glmnet)
+lasso_model <- glmnet(x_trainTransformed,y_train,alpha = 1,lambda = NULL)
+```
+```{r}
+lasso_model
+```
+
+```{r}
+cv <- cv.glmnet(x_trainTransformed,y_train, alpha=1)#alpha = 1 means lasso and 0 means ridge
+```
+```{r}
+cv$lambda.min
+```
+
+```{r}
+fit=glmnet(x_trainTransformed,y_train, alpha = 1, lambda = cv$lambda.min)
+```
+```{r}
+plot(fit)
+```
+
+ 
+
+
+```{r}
+ coef(fit,s=0.1)
+```
+```{r}
+print(fit)
+```
+```{r}
+plot(fit,xvar="lambda", label = TRUE)
+```
+```{r}
+cvfit = cv.glmnet(x_trainTransformed,y_train)
+```
+```{r}
+plot(cvfit)
+#https://web.stanford.edu/~hastie/glmnet/glmnet_alpha.html
+```
+
+```{r}
+cvfit$lambda.min
+```
+```{r}
+coef(cvfit, s = "lambda.min")
+```
+```{r}
+
+foldid=sample(1:10,size=length(y),replace=TRUE)
+cv1=cv.glmnet(x,y,foldid=foldid,alpha=1)
+cv.5=cv.glmnet(x,y,foldid=foldid,alpha=.5)
+cv0=cv.glmnet(x,y,foldid=foldid,alpha=0)
+
+par(mfrow=c(2,2))
+plot(cv1);plot(cv.5);plot(cv0)
+plot(log(cv1$lambda),cv1$cvm,pch=19,col="red",xlab="log(Lambda)",ylab=cv1$name)
+points(log(cv.5$lambda),cv.5$cvm,pch=19,col="grey")
+points(log(cv0$lambda),cv0$cvm,pch=19,col="blue")
+legend("topleft",legend=c("alpha= 1","alpha= .5","alpha 0"),pch=19,col=c("red","grey","blue"))
+```
+
+
+```{r}
+library(coefplot)
+coefplot(lasso_model,sort='magnitude')
+```
+```{r}
+typeof(trainSet)
+```
+```{r}
+predictors <- colnames(trainSet)
+```
+
+```{r}
+install.packages(broom)
+```
+
+
+```{r}
+train_pred<- predict(lasso_model,newx=x_trainTransformed)
+MAE(pred = train_pred, obs = y_train)# 2.97836
+```
+```{r}
+test_pred<- predict(lasso_model,newx=x_testTransformed)
+MAE(pred=test_pred,obs=y_test)#3.183236
+```
+
