@@ -10,7 +10,7 @@
 library(shiny)
 
 # Define server logic required to draw a histogram
-shinyServer(function(input, output) {
+shinyServer(function(input, output,session) {
    
      #disribution plots
     output$distPlot <- renderPlotly({
@@ -58,11 +58,42 @@ shinyServer(function(input, output) {
     })
     ##################################################**Treatment Types**########################################
     
+   #this below code is used to populate the selection input boxes on the left panel
+    
+    output$treatment_payors_sel_year <- renderUI({
+      selectInput("treatment_year","Select Year", choices = c('2017','2018'))
+    })
+    
+    output$treatment_payors <- renderUI({
+      
+      if(input$treatment_year == '2017'){
+        dat<-c("United Health_02371001" = '02371001',			
+                "UPMC Health_12320609"='12320609')}
+      
+      if(input$treatment_year == '2018'){
+        dat<-c("United Health_02371001" = '02371001',			
+               "UPMC Health_12320609"='12320609',			
+               "Humana_11371008"='11371008',
+               "Wellcare_21560402"='21560402',			
+               "Anthem_00410417"= '00410417',			
+               "Highmark Group_16181025"='16181025',			
+               "Molina_00410601"= '00410601',			
+               "Blue Cross_00410825"='00410825',
+               "CSV" = '00410235')}
+      
+      
+      selectInput("treatment.payors.in","Select a Payor",
+                  choices =  dat)
+     
+  })
+  
     output$distpayorBarPlot <- renderPlotly({
         
         total_payments_bar_plt<-dci_data_eda %>% 
-                                filter(pcn_payer_code == input$summary_payor) %>% 
-                                filter(acct_yyyy == input$summary_year_payor) %>% 
+                                # filter(pcn_payer_code == input$summary_payor) %>% 
+                                # filter(acct_yyyy == input$summary_year_payor) %>% 
+                                filter(pcn_payer_code == input$treatment.payors.in) %>% 
+                                filter(acct_yyyy == input$treatment_year) %>% 
                                 group_by(modality) %>% 
                                 summarise(sum_payments= sum(remit_total_paid)) %>% 
                                 ggplot(aes(x = modality, y = sum_payments, fill = modality,text=sum_payments)) +
@@ -84,8 +115,11 @@ shinyServer(function(input, output) {
     
     output$distpayorBarPlotper <-renderPlotly({
         payors_with_good_per<-dci_data_eda %>% group_by(pcn_payer_code,modality) %>% 
-                                filter(pcn_payer_code==input$summary_payor) %>% 
-                                filter(acct_yyyy == input$summary_year_payor) %>% 
+                                # filter(pcn_payer_code==input$summary_payor) %>% 
+                                # filter(acct_yyyy == input$summary_year_payor) %>% 
+          
+                                filter(pcn_payer_code==input$treatment.payors.in) %>% 
+                                filter(acct_yyyy == input$treatment_year) %>% 
                                 summarise('Num_of_rows'=n(),
                                           'Total_charges' = sum(remit_total_charged),
                                           'Total_payments' = sum(remit_total_paid),
@@ -109,6 +143,34 @@ shinyServer(function(input, output) {
     ##################################################**End of Treatment Types**######################### 
     
     ############################################****PCN PLOTS***#########################################
+    #side input boxes
+    
+    
+    output$summary_year_pcn_ou <- renderUI({
+      selectInput("summary_year_pcn","Select Year", choices = c('2017','2018'))
+    })
+    
+    output$summary_payor_pcn_ou <- renderUI({
+      
+      if(input$summary_year_pcn == '2017'){
+        dat<-c("United Health_02371001" = '02371001',			
+               "UPMC Health_12320609"='12320609')}
+      
+      if(input$summary_year_pcn == '2018'){
+        dat<-c("United Health_02371001" = '02371001',			
+               "UPMC Health_12320609"='12320609',			
+               "Humana_11371008"='11371008',
+               "Wellcare_21560402"='21560402',			
+               "Highmark Group_16181025"='16181025',			
+               "Molina_00410601"= '00410601',	
+               "CSV" = '00410235')}
+      
+      selectInput("summary_payor_pcn","Select a Payor",
+                  choices =  dat)
+      
+    })
+    
+    
   
     #pcn 1 Bar plot
     output$distPcnBarPlot <-renderPlotly({
@@ -219,11 +281,51 @@ shinyServer(function(input, output) {
     
     
     ############################################****Comparision plots***######################################### 
+    
+    
+    output$algo_payors_ou <- renderUI({
+      selectInput("algo_payors","Select a Payor", choices = c(
+                                                            "United Health_02371001"='pcn_payer_code_02371001',
+                                                            "CSV_00410235"='pcn_payer_code_00410235',				
+                                                            "Molina_00410601"='pcn_payer_code_00410601',				
+                                                            "Highmark Group_16181025"='pcn_payer_code_00410825',				
+                                                            "UPMC Health_12320609"='pcn_payer_code_12320609'))
+    })
+    
+    output$algo_modality_ou <- renderUI({
+      
+      if(input$algo_payors == 'pcn_payer_code_02371001'){
+        dat<-c(
+          "HEMO_1110"="modality_cost_code_1110",
+          "CAPD HOME TRAINING_1220"="modality_cost_code_1220",
+          "CCPD HOME TRAINING_1230" ="modality_cost_code_1230",
+          "CAPD HOME TREATMENT_1320" =	"modality_cost_code_1320",
+          "CCPD HOME TREATMENT_1330" = "modality_cost_code_1330")}
+      
+      if(input$algo_payors == 'pcn_payer_code_00410235'){
+         dat<-c("HEMO_1110"="modality_cost_code_1110")  }
+      
+      if(input$algo_payors == 'pcn_payer_code_00410601'){
+        dat<-c("HEMO_1110"="modality_cost_code_1110")  }
+      
+      if(input$algo_payors == 'pcn_payer_code_00410825'){
+        dat<-c("HEMO_1110"="modality_cost_code_1110")  }
+      
+      if(input$algo_payors == 'pcn_payer_code_12320609'){
+        dat<-c("HEMO_1110"="modality_cost_code_1110")  }
+      
+
+ 
+      selectInput("algo_modality","Select Treatment Types",
+                  choices =  dat)
+      
+    })
+
+    
     output$ComparisionPlot <- renderPlotly({
                             compare_plt_df <- compare_actuals_to_pred %>% 
                                 filter(!!as.symbol(input$algo_payors) == 1 ) %>% 
                                 filter(!!as.symbol(input$algo_modality) == 1)%>% 
-                                #filter(pcn_payer_code_02371001 == 1 & hcpc_code_90999==1 ) %>% 
                                 select(actual,predicted,percentage_difference ) %>%
                                 summarise('Actual' = mean(actual),'Predicted' = mean(predicted)) %>% 
                                 pivot_longer(Actual:Predicted,names_to = "Predictions", values_to = "percentage_predicted") 

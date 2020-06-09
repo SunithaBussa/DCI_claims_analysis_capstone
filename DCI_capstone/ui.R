@@ -31,19 +31,28 @@ shinyUI(
                                          selectInput("summary_year","Pick Year",choices = c(2017,2018)) ),
                         
                         menuItem("Treatment Types", tabName = "payors", icon = icon("clinic-medical", class="fas fa-briefcase-medical" , lib="font-awesome")),
-                             conditionalPanel("input.sidebarmenu=='payors'",
-                                 selectInput("summary_payor","Select a Payor",choices = payors,) ),
+                            # conditionalPanel("input.sidebarmenu=='payors'",
+                              #   selectInput("summary_payor","Select a Payor",choices = payors) ),
+                       # conditionalPanel("input.sidebarmenu=='payors'",
+                        #                 selectInput("summary_year_payor","Pick Year",choices = c( 2017,2018)) ),
+                       conditionalPanel("input.sidebarmenu=='payors'",
+                                        uiOutput("treatment_payors_sel_year")),
+                       conditionalPanel("input.sidebarmenu=='payors'",
+                                         uiOutput("treatment_payors")),
+                       
                         
-                                 conditionalPanel("input.sidebarmenu=='payors'",
-                                         selectInput("summary_year_payor","Pick Year",choices = c( 2017,2018)) ),
+                                
                         
                         menuItem("Payors", tabName = "pcn", icon = icon("id-card", class="far fa-id-card",lib="font-awesome")),
                         
                         conditionalPanel("input.sidebarmenu=='pcn'",
-                                         selectInput("summary_year_pcn","Pick Year",choices = c( 2017,2018)) ),
+                                         #selectInput("summary_year_pcn","Pick Year",choices = c( 2017,2018))
+                                         uiOutput("summary_year_pcn_ou")),
                         
                         conditionalPanel("input.sidebarmenu=='pcn'",
-                                         selectInput("summary_payor_pcn","Select a Payor",choices = payors) ),
+                                         #selectInput("summary_payor_pcn","Select a Payor",choices = payors)
+                                         uiOutput("summary_payor_pcn_ou")
+                                         ),
                         
                         
 
@@ -54,20 +63,18 @@ shinyUI(
                         menuItem("Payment Predictions",tabName = "paymentpredictions",icon = icon("trophy")),
                         
                         conditionalPanel("input.sidebarmenu=='paymentpredictions'",
-                                         selectInput("algo_payors","Select Payor Code",choices = pcn_payor_code_shiny)),
+                                         #selectInput("algo_payors","Select Payor Code",choices = pcn_payor_code_shiny)
+                                         uiOutput("algo_payors_ou")
+                                         ),
                         
                         conditionalPanel("input.sidebarmenu=='paymentpredictions'",
-                                         selectInput("algo_modality","Select Treatment Types",choices = modality_cost_codes_shiny)),
-                        #meds not needed 
-                        # conditionalPanel("input.sidebarmenu=='paymentpredictions'",
-                        #                  selectInput("algo_hcpc","Select Medication",choices = hcpc_code_shiny)
+                                         #selectInput("algo_modality","Select Treatment Types",choices = modality_cost_codes_shiny)
+                                         uiOutput("algo_modality_ou")
+                                         ),
+        
                                          
                         menuItem("Raw Data",tabName = "data",icon = icon("database"))
-                        
-                        # conditionalPanel("input.sidebarmenu=='data'",
-                        #                  selectInput("data_year","Pick Year",choices = c( 2017,2018)),
-                        #                  sliderInput("data_month_slider","Pick Month",1,12,1))
-                        
+                 
                          
             )
             
